@@ -13,10 +13,14 @@ def proof_of_work(block):
     in an effort to find a number that is a valid proof
     :return: A valid proof for the provided block
     """
-    pass
+
+    block['proof'] = 0
+    while not valid_proof(block):
+        block['proof'] += 1
+    return block['proof']
 
 
-def valid_proof(block_string, proof):
+def valid_proof(block):
     """
     Validates the Proof:  Does hash(block_string, proof) contain 6
     leading zeroes?  Return true if the proof is valid
@@ -27,7 +31,10 @@ def valid_proof(block_string, proof):
     correct number of leading zeroes.
     :return: True if the resulting hash is a valid proof, False otherwise
     """
-    pass
+    string_block = json.dumps(block, sort_keys=True).encode()
+
+    try_hash = hashlib.sha256(string_block)
+    return try_hash[:4] == "0000"
 
 
 if __name__ == '__main__':
@@ -35,7 +42,7 @@ if __name__ == '__main__':
     if len(sys.argv) > 1:
         node = sys.argv[1]
     else:
-        node = "http://localhost:5000"
+        node = "http://localhost:8000"
 
     # Load ID
     f = open("my_id.txt", "r")
@@ -55,8 +62,8 @@ if __name__ == '__main__':
             print(r)
             break
 
-        # TODO: Get the block from `data` and use it to look for a new proof
-        # new_proof = ???
+        new_proof = proof_of_work(data)
+
 
         # When found, POST it to the server {"proof": new_proof, "id": id}
         post_data = {"proof": new_proof, "id": id}

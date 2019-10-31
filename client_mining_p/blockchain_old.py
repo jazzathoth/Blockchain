@@ -14,7 +14,7 @@ class Blockchain(object):
         # Create the genesis block
         self.new_block(previous_hash=1, proof=100)
 
-    def new_block(self, proof, previous_hash=None):
+    def new_block(self, previous_hash=None, proof=0):
         """
         Create a new Block in the Blockchain
 
@@ -45,7 +45,7 @@ class Blockchain(object):
         # Return the new block
         return block
 
-    def hash(self, block, proof):
+    def hash(self, block):
         """
         Creates a SHA-256 hash of a Block
 
@@ -54,8 +54,7 @@ class Blockchain(object):
         """
 
         # Use json.dumps to convert json into a string
-        string_dump = json.dumps(block, sort_keys=True)
-        string_block = f"{string_dump}{proof}".encode()
+        string_block = json.dumps(block, sort_keys=True).encode()
 
         # Use hashlib.sha256 to create a hash
         raw_hash = hashlib.sha256(string_block)
@@ -87,30 +86,31 @@ class Blockchain(object):
         in an effort to find a number that is a valid proof
         :return: A valid proof for the provided block
         """
-        string_block = json.dumps(block, sort_keys=True)
-        try_proof = 0
-        while not self.valid_proof(string_block, try_proof):
-            try_proof += 1
-        return try_proof
+
+        block['proof'] = 0
+        while not self.valid_proof(block):
+            block['proof'] += 1
+        return block['proof']
 
     @staticmethod
-    def valid_proof(block_string, proof):
+    def valid_proof(try_block):
         """
         Validates the Proof:  Does hash(block_string, proof) contain 3
         leading zeroes?  Return true if the proof is valid
-        :param block_string: <string> The stringified block to use to
-        check in combination with `proof`
-        :param proof: <int?> The value that when combined with the
-        stringified previous block results in a hash that has the
-        correct number of leading zeroes.
+        :param try_block: <dict> The block to use to
+        check. Contains key `proof`
         :return: True if the resulting hash is a valid proof, False otherwise
         """
-        guess = f'{block_string}{proof}'.encode()
-        try_hash = hashlib.sha256(guess).hexdigest()
-        if try_hash[:3] == "000":
-            print(guess)
+
+        string_block = json.dumps(try_block, sort_keys=True).encode()
+
+        try_hash = hashlib.sha256(string_block).hexdigest()
+
+        if try_hash[:4] == "0000":
+            print(try_block['proof'])
             print(try_hash)
-        return try_hash[:3] == '000'
+
+        return try_hash[:4] == '0000'
 
 
 # Instantiate our Node
@@ -126,12 +126,12 @@ blockchain = Blockchain()
 @app.route('/mine', methods=['GET'])
 def mine():
     # Run the proof of work algorithm to get the next proof
-    proof = blockchain.proof_of_work(blockchain.last_block)
 
     # Forge the new Block by adding it to the chain with the proof
-    previous_hash = blockchain.hash(blockchain.last_block, proof)
+    previous_hash = blockchain.hash(blockchain.last_block)
 
-    block = blockchain.new_block(proof=proof, previous_hash=previous_hash)
+    block = blockchain.new_block(previous_hash=previous_hash)
+    blockchain.proof_of_work(block)
 
     response = {
         'message': "New Block Forged ('Forged' not 'created' or 'made'. I appreciate the descriptiveness)",
@@ -152,6 +152,9 @@ def full_chain():
     }
     return jsonify(response), 200
 
+@app.route('/last_block', methods=['GET'])
+def last_block():
+    return jsonify(blockchain.last_block)
 
 # Run the program on port 5000
 if __name__ == '__main__':
