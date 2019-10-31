@@ -8,33 +8,43 @@ import json
 def proof_of_work(block):
     """
     Simple Proof of Work Algorithm
-    Stringify the block and look for a proof.
+    Look for a proof.
     Loop through possibilities, checking each one against `valid_proof`
     in an effort to find a number that is a valid proof
     :return: A valid proof for the provided block
     """
 
-    block['proof'] = 0
-    while not valid_proof(block):
-        block['proof'] += 1
-    return block['proof']
+    proof = 0
+    while not valid_proof(try_block=block, proof=proof):
+        proof += 1
+    return proof
 
 
-def valid_proof(block):
+def valid_proof(try_block, proof):
     """
     Validates the Proof:  Does hash(block_string, proof) contain 6
     leading zeroes?  Return true if the proof is valid
-    :param block_string: <string> The stringified block to use to
+    :param try_block: <dict> The block to use to
     check in combination with `proof`
     :param proof: <int?> The value that when combined with the
     stringified previous block results in a hash that has the
     correct number of leading zeroes.
     :return: True if the resulting hash is a valid proof, False otherwise
     """
-    string_block = json.dumps(block, sort_keys=True).encode()
 
-    try_hash = hashlib.sha256(string_block)
+    try_hash = hash_256(try_block, proof)
     return try_hash[:4] == "0000"
+
+
+def hash_256(block, proof):
+    to_hash = {
+        'block':    json.dumps(block, sort_keys=True),
+        'proof':    proof,
+    }
+
+    block_proof_string = json.dumps(to_hash).encode()
+    hex_hash = hashlib.sha256(block_proof_string).hexdigest()
+    return hex_hash
 
 
 if __name__ == '__main__':
@@ -46,9 +56,11 @@ if __name__ == '__main__':
 
     # Load ID
     f = open("my_id.txt", "r")
-    id = f.read()
+    my_id = f.read()
     print("ID is", id)
     f.close()
+
+    mined_coins = 0
 
     # Run forever until interrupted
     while True:
@@ -66,12 +78,14 @@ if __name__ == '__main__':
 
 
         # When found, POST it to the server {"proof": new_proof, "id": id}
-        post_data = {"proof": new_proof, "id": id}
+        post_data = {"proof": new_proof, "id": my_id}
 
         r = requests.post(url=node + "/mine", json=post_data)
         data = r.json()
 
-        # TODO: If the server responds with a 'message' 'New Block Forged'
-        # add 1 to the number of coins mined and print it.  Otherwise,
-        # print the message from the server.
-        pass
+        if data.get('message') == "New Block Forged":
+            mined_coins += 1
+            print("Mined a new coin!")
+            print(f"Total coins: {mined_coins}")
+        else:
+            print(data.get('message'))
